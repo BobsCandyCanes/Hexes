@@ -1,4 +1,4 @@
-Java-Projects
+Hexes
 =============
 
-Projects made using Java
+Hexagons, bitch.
