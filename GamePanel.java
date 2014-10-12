@@ -12,105 +12,144 @@ import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
-public class GamePanel extends JPanel implements ActionListener, Runnable
+public class GamePanel extends JPanel implements ActionListener, MouseListener,
+Runnable
 {
 	private static final long serialVersionUID = 1L;
-	
+
 	private Graphics g;
-	
-	private int width;
-	private int height;
-	
-	private int hexWidth = 36;
-	private int hexHeight = 33;
-	
-	private int numRows;
-	private int numColumns;
-	
+
+	private int panelWidthInPixels;
+	private int panelHeightInPixels;
+
+	private int hexWidthInPixels = 36;
+	private int hexHeightInPixels = 33;
+
+	private int numberOfRows;
+	private int numberOfColumns;
+
 	private int mouseX;
 	private int mouseY;
-	
-	private int timerNumber = 0;
+
 	private int stepNumber = 0;
-	
-	private static int speed = 50;
-	
+
+	private int timerNumber = 0;
+	private static int gameSpeed = 15; // The lower the number, the faster the speed
+
 	private Image highlightRing;
 	private Image selectRing;
 	
-	private boolean mousePressed = false;
-	private boolean sandboxMode = true;
 	private boolean isPaused = true;
-	
-	static Timer mouseTimer;
-	
+
+	static Timer timer;
+
 	Location[][] locations;
-	
-	MouseListener mouseAdapter = new MouseListener() {
-		public void mouseClicked(MouseEvent arg0)
-		{
-		}
 
-		public void mouseEntered(MouseEvent arg0)
-		{
-		}
-
-		public void mouseExited(MouseEvent arg0)
-		{
-		}
-
-		public void mousePressed(MouseEvent arg0)
-		{
-			GamePanel.this.mousePressed = true;
-		}
-
-		public void mouseReleased(MouseEvent arg0)
-		{
-			GamePanel.this.mousePressed = false;
-		}
-	};
-
-	public GamePanel(int x, int y)
+	public GamePanel(int width, int height)
 	{
-		this.width = x;
-		this.height = y;
+		panelWidthInPixels = width;
+		panelHeightInPixels = height;
 
-		this.numColumns = (this.width / (this.hexWidth - 11) - 1);
-		this.numRows = (this.height / (this.hexHeight - 1));
+		numberOfColumns = (panelWidthInPixels / (hexWidthInPixels - 11) - 1);
+		numberOfRows = (panelHeightInPixels / (hexHeightInPixels - 1));
 
-		this.locations = new Location[this.numRows][this.numColumns];
+		locations = new Location[numberOfRows][numberOfColumns];
 
 		resetWorld();
 
-		setPreferredSize(new Dimension(x, y));
+		setPreferredSize(new Dimension(panelWidthInPixels, panelHeightInPixels));
 
 		setFocusable(true);
 
-		addMouseListener(this.mouseAdapter);
+		addMouseListener(this);
+	}
+
+	public void mousePressed(MouseEvent arg0)
+	{
+		if(isPaused)
+		{
+			updateMousePosition();
+
+			for (Location[] rows : this.locations)
+			{
+				for (Location loc : rows)
+				{
+					if (loc.mouseIsOver(mouseX, mouseY))
+					{
+						g.drawImage(selectRing, loc.getXPixel(), loc.getYPixel(), null);
+
+						if (isPaused)
+						{
+							loc.changeHexType();
+							checkOverlays();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public void mouseEntered(MouseEvent arg0)
+	{
+	}
+
+	public void mouseExited(MouseEvent arg0)
+	{
+	}
+
+	public void mouseClicked(MouseEvent arg0)
+	{
+		if(!isPaused)
+		{
+			updateMousePosition();
+
+			boolean done = false;
+
+			for (Location[] rows : locations)
+			{
+				for (Location loc : rows)
+				{
+					if (!done)
+					{
+						if (loc.mouseIsOver(mouseX, mouseY))
+						{
+							g.drawImage(selectRing, loc.getXPixel(), loc.getYPixel(), null);
+
+							if (loc.getHex() instanceof Grass)
+							{
+								loc.setHex(new RallyPoint());
+							} 
+							else if (loc.getHex() instanceof RallyPoint)
+							{
+								loc.setHex(new Grass());
+							}
+
+							done = true;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public void mouseReleased(MouseEvent arg0)
+	{
 	}
 
 	public void actionPerformed(ActionEvent e)
 	{
-		Point mousePos = getMousePosition();
-		
-		if (mousePos != null)
+		if (!isPaused)
 		{
-			this.mouseX = mousePos.x;
-			this.mouseY = mousePos.y;
-		}
-		
-		if (!this.isPaused)
-		{
-			this.timerNumber += 1;
-			
-			if (this.timerNumber == speed)
+			timerNumber++;
+
+			if (timerNumber == gameSpeed)
 			{
-				this.timerNumber = 0;
-				step();
+				timerNumber = 0;
+
+				worker.run();
 			}
 		}
-		
-		update();
+
 		repaint();
 	}
 
@@ -118,9 +157,11 @@ public class GamePanel extends JPanel implements ActionListener, Runnable
 	{
 		initialize();
 
-		mouseTimer = new Timer(15, this);
-		mouseTimer.setInitialDelay(0);
-		mouseTimer.start();
+		timer = new Timer(5, this);
+		timer.setInitialDelay(0);
+		timer.start();
+
+		worker.start();
 	}
 
 	public void initialize()
@@ -138,175 +179,165 @@ public class GamePanel extends JPanel implements ActionListener, Runnable
 
 		boolean done = false;
 
-		boolean isHighlighted = false;
-		boolean isSelected = false;
-		
+		updateMousePosition();
+
 		for (Location[] rows : this.locations)
 		{
-			for (Location l : rows)
+			for (Location loc : rows)
 			{
+				g.drawImage(loc.getImage(), loc.getXPixel(), loc.getYPixel(), null);
+
+				for (Image overlay : loc.getOverlays())
+				{
+					g.drawImage(overlay, loc.getXPixel(), loc.getYPixel(), null);
+				}
+
+				for (Image border : loc.getBorders())
+				{
+					g.drawImage(border, loc.getXPixel(), loc.getYPixel(), null);
+				}
+
 				if (!done)
 				{
-					if (l.mouseIsOver(this.mouseX, this.mouseY))
+					if (loc.mouseIsOver(mouseX, mouseY))
 					{
-						isHighlighted = true;
-						
-						if (this.mousePressed)
-						{
-							isSelected = true;
-							
-							if (this.sandboxMode)
-							{
-								l.changeHexType();
-							}
-						}
-						
+						g.drawImage(highlightRing, loc.getXPixel(), loc.getYPixel(), null);
+
 						done = true;
 					}
 				}
-				
-				g.drawImage(l.getImage(), l.getXPixel(), l.getYPixel(), null);
-				
-				for (Image overlay : l.getOverlays())
-				{
-					g.drawImage(overlay, l.getXPixel(), l.getYPixel(), null);
-				}
-				
-				if (isHighlighted)
-				{
-					g.drawImage(this.highlightRing, l.getXPixel(), l.getYPixel(), null);
-				}
-				
-				if (isSelected)
-				{
-					g.drawImage(this.selectRing, l.getXPixel(), l.getYPixel(),null);
-				}
-				
-				isHighlighted = false;
-				isSelected = false;
 			}
 		}
 	}
 
 	public void checkOverlays()
 	{
-		for (int r = 0; r < this.numRows; r++)
+		for (int row = 0; row < numberOfRows; row++)
 		{
-			for (int c = 0; c < this.numColumns; c++)
+			for (int col = 0; col < numberOfColumns; col++)
 			{
-				this.locations[r][c].getHex().checkOverlays();
+				locations[row][col].getHex().checkOverlays();
 			}
 		}
 	}
 
-	public void update()
+	public void checkBorders()
 	{
+		for (int row = 0; row < numberOfRows; row++)
+		{
+			for (int col = 0; col < numberOfColumns; col++)
+			{
+				if (!locations[row][col].getFaction().equals("None"))
+				{
+					locations[row][col].checkBorders();
+				}
+			}
+		}
 	}
 
 	public void resetWorld()
 	{
-		this.stepNumber = 0;
-		
-		for (int r = 0; r < this.numRows; r++)
-		{
-			for (int c = 0; c < this.numColumns; c++)
-			{
-				int hexX = c * (this.hexWidth - 11);
-				int hexY = r * (this.hexHeight - 1);
-				
-				if (c % 2 == 1)
-				{
-					hexY += 16;
-				}
-				
-				this.locations[r][c] = new Location(hexX, hexY, this);
+		stepNumber = 0;
 
-				this.locations[r][c].setRow(r);
-				this.locations[r][c].setColumn(c);
+		for (int row = 0; row < numberOfRows; row++)
+		{
+			for (int col = 0; col < numberOfColumns; col++)
+			{
+				int hexXCoordinate = col * (hexWidthInPixels - 11);
+				int hexYCoordinate = row * (hexHeightInPixels - 1);
+
+				if (col % 2 == 1)
+				{
+					hexYCoordinate += 16;
+				}
+
+				locations[row][col] = new Location(hexXCoordinate, hexYCoordinate, this);
+
+				locations[row][col].setRow(row);
+				locations[row][col].setColumn(col);
 			}
 		}
+
+		checkOverlays();
 	}
+
+	Thread worker = new Thread() 
+	{
+		public void run()
+		{
+			step();
+		}
+	};
 
 	public void step()
 	{
-		this.stepNumber += 1;
-		System.out.println("Step number: " + this.stepNumber);
-		
-		for (Location[] r : this.locations)
+		stepNumber++;
+
+		System.out.println("Step number: " + stepNumber);
+
+		for (Location[] row : locations)
 		{
-			for (Location c : r)
+			for (Location col : row)
 			{
-				c.getHex().setHasActed(false);
+				col.getHex().setHasActed(false);
 			}
 		}
-		
-		for (Location[] r : this.locations)
+
+		for (Location[] row : locations)
 		{
-			for (Location c : r)
+			for (Location col : row)
 			{
-				if (!c.getHex().hasActed())
+				if (!col.getHex().hasActed())
 				{
-					c.getHex().setHasActed(true);
-					c.act();
+					col.getHex().setHasActed(true);
+					col.act();
 				}
 			}
 		}
 	}
-
-	public boolean isSandboxMode()
+	
+	public boolean isPaused()
 	{
-		return this.sandboxMode;
-	}
-
-	public void toggleSandboxMode()
-	{
-		if (this.sandboxMode)
-		{
-			this.sandboxMode = false;
-		} 
-		else
-		{
-			this.sandboxMode = true;
-		}
+		return isPaused;
 	}
 
 	public void togglePause()
 	{
-		if (this.isPaused)
+		if (isPaused)
 		{
-			this.isPaused = false;
+			isPaused = false;
 			System.out.println("Unpausing");
-		}
+		} 
 		else
 		{
-			this.isPaused = true;
+			isPaused = true;
 			System.out.println("Pausing");
 		}
 	}
 
-	public int getWidth()
+	public int getPanelWidthInPixels()
 	{
-		return this.width;
+		return panelWidthInPixels;
 	}
 
-	public int getHeight()
+	public int getPanelHeightInPixels()
 	{
-		return this.height;
+		return panelHeightInPixels;
 	}
 
-	public int getNumRows()
+	public int getNumberOfRows()
 	{
-		return this.numColumns;
+		return numberOfColumns;
 	}
 
-	public int getNumColumns()
+	public int getNumberOfColumns()
 	{
-		return this.numRows;
+		return numberOfRows;
 	}
 
 	public Location[][] getLocations()
 	{
-		return this.locations;
+		return locations;
 	}
 
 	public Location getLocation(int r, int c)
@@ -315,49 +346,59 @@ public class GamePanel extends JPanel implements ActionListener, Runnable
 		{
 			return this.locations[r][c];
 		}
-		
+
 		return null;
 	}
 
 	public boolean isValidLocation(int r, int c)
 	{
-		if ((r >= 0) && (c >= 0) && (r < this.numRows) && (c < this.numColumns))
+		if ((r >= 0) && (c >= 0) && (r < numberOfRows) && (c < numberOfColumns))
 		{
-			return this.locations[r][c] != null;
+			return locations[r][c] != null;
 		}
-		
+
 		return false;
 	}
 
-	public boolean isValidLocation(Location l)
+	public boolean isValidLocation(Location loc)
 	{
-		for (int r = 0; r < this.numRows; r++)
+		for (int r = 0; r < numberOfRows; r++)
 		{
-			for (int c = 0; c < this.numColumns; c++)
+			for (int c = 0; c < numberOfColumns; c++)
 			{
-				if (this.locations[r][c] == l)
+				if (locations[r][c] == loc)
 				{
 					return true;
 				}
 			}
 		}
-		
+
 		return false;
 	}
 
-	public void setSpeed(int i)
+	public void updateMousePosition()
 	{
-		speed = i;
+		Point mousePos = getMousePosition();
+
+		if (mousePos != null)
+		{
+			mouseX = mousePos.x;
+			mouseY = mousePos.y;
+		}
+	}
+
+	public void setGameSpeed(int i)
+	{
+		gameSpeed = i;
 	}
 
 	public void importSprites()
 	{
 		try
 		{
-			this.highlightRing = ImageIO.read(new File("Images/Overlays/highlightRing.png"));
-			this.selectRing = ImageIO.read(new File("Images/Overlays/selectRing.png"));
-		} 
-		catch (IOException e)
+			highlightRing = ImageIO.read(new File("Images/Overlays/highlightRing.png"));
+			selectRing = ImageIO.read(new File("Images/Overlays/selectRing.png"));
+		} catch (IOException e)
 		{
 			e.printStackTrace();
 		}
