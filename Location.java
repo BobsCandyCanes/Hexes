@@ -1,5 +1,11 @@
 import java.awt.Image;
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+
+import javax.imageio.ImageIO;
 
 public class Location
 {
@@ -9,39 +15,53 @@ public class Location
 	private int Column = 0;
 	private int Row = 0;
 
-	private int hexWidth = 36;
-	private int hexHeight = 33;
+	private int hexWidthInPixels = 36;
+	private int hexHeightInPixels = 33;
 
-	private int centerX;
-	private int centerY;
+	private int centerXPixel;
+	private int centerYPixel;
+
+	private String faction = "None";
+
+	private Image blueBorderTop;
+	private Image blueBorderTopRight;
+	private Image blueBorderBottomRight;
+	private Image blueBorderBottom;
+	private Image blueBorderBottomLeft;
+	private Image blueBorderTopLeft;
+
+	private ArrayList<Image> borders = new ArrayList<Image>();
 
 	private GamePanel gamePanel;
 
 	private Hex hex;
 
-	public Location() 
+	public Location()
 	{
-
+		this.importBorders();
 	}
 
 	public Location(int x, int y, GamePanel gp)
 	{
-		this.gamePanel = gp;
+		gamePanel = gp;
 
-		this.xPixel = x;
-		this.yPixel = y;
+		xPixel = x;
+		yPixel = y;
 
-		this.centerX = (this.xPixel + this.hexWidth / 2);
-		this.centerY = (this.yPixel + this.hexHeight / 2);
+		centerXPixel = (xPixel + this.hexWidthInPixels / 2);
+		centerYPixel = (yPixel + this.hexHeightInPixels / 2);
 
-		this.hex = new Grass();
+		hex = new Grass();
+		hex.setLocation(this);
+
+		importBorders();
 	}
 
 	public boolean mouseIsOver(int mouseX, int mouseY)
 	{
-		if (Math.abs(mouseX - this.centerX) <= 14)
+		if (Math.abs(mouseX - centerXPixel) <= 14)	//If the mouse is within 14 pixels of the center
 		{
-			if (Math.abs(mouseY - this.centerY) <= 14) 
+			if (Math.abs(mouseY - centerYPixel) <= 14)
 			{
 				return true;
 			}
@@ -52,90 +72,111 @@ public class Location
 
 	public void act()
 	{
-		this.hex.act();
+		hex.act();
 	}
 
 	public GamePanel getGamePanel()
 	{
-		return this.gamePanel;
+		return gamePanel;
 	}
 
 	public int getXPixel()
 	{
-		return this.xPixel;
+		return xPixel;
 	}
 
 	public int getYPixel()
 	{
-		return this.yPixel;
+		return yPixel;
 	}
 
 	public int getColumn()
 	{
-		return this.Column;
+		return Column;
 	}
 
-	public void setColumn(int Column)
+	public void setColumn(int newColumn)
 	{
-		this.Column = Column;
+		Column = newColumn;
 	}
 
 	public int getRow()
 	{
-		return this.Row;
+		return Row;
 	}
 
-	public void setRow(int Row)
+	public void setRow(int newRow)
 	{
-		this.Row = Row;
+		Row = newRow;
+	}
+
+	public void setFaction(String str)
+	{
+		faction = str;
+
+		gamePanel.checkBorders();
+	}
+
+	public String getFaction()
+	{
+		return faction;
+	}
+
+	public ArrayList<Image> getBorders()
+	{
+		return borders;
+	}
+
+	public void addBorder(Image i)
+	{
+		borders.add(i);
+	}
+
+	public void clearBorders()
+	{
+		borders = new ArrayList<Image>();
 	}
 
 	public Hex getHex()
 	{
-		return this.hex;
+		return hex;
 	}
 
 	public void setHex(Hex h)
 	{
-		this.hex = h;
-		this.hex.setLocation(this);
+		hex = h;
+		hex.setLocation(this);
 	}
 
 	public void changeHexType()
 	{
-		switch ((Hexes.getHexType()))
+		Class<? extends Hex> hexClass = Hexes.getHexType().getClass();
+
+		try
 		{
-
-		case "People": 
-			this.setHex(new People());
-			break;
-		case "Bear": 
-			this.setHex(new Bear());
-			break;
-		case "Lave": 
-			this.setHex(new Lava());
-			break;
-		case "Grass": 
-			this.setHex(new Grass());
-			break;
-		case "House": 
-			this.setHex(new House());
-			break;
-		case "Trees": 
-			this.setHex(new Trees());
-			break;
-		case "Water": 
-			this.setHex(new Water());
-			break;
-		case "RallyPoint": 
-			this.setHex(new RallyPoint());
-			break;
-
-		default:
-			break;
+			Constructor<? extends Hex> constructor = hexClass.getConstructor();	
+			setHex(constructor.newInstance());
 		}
-
-		this.gamePanel.checkOverlays();
+		catch (NoSuchMethodException e)
+		{
+			e.printStackTrace();
+		}
+		catch (InstantiationException e)
+		{
+			e.printStackTrace();
+		}
+		catch (IllegalAccessException e)
+		{
+			e.printStackTrace();
+		}
+		catch (IllegalArgumentException e)
+		{
+			e.printStackTrace();
+		}
+		catch (InvocationTargetException e)
+		{
+			e.printStackTrace();
+		}
 	}
 
 	public Image getImage()
@@ -152,62 +193,162 @@ public class Location
 	{
 		ArrayList<Location> tempLocations = new ArrayList<Location>();
 
-		int count = 0;
-		for (int c = this.Column - 1; c <= this.Column + 1; c++) 
+		int numberOfAdjacentLocations = 0;
+		
+		for (int c = Column - 1; c <= Column + 1; c++)
 		{
-			for (int r = this.Row - 1; r <= this.Row + 1; r++) 
+			for (int r = Row - 1; r <= Row + 1; r++)
 			{
-				if (this.gamePanel.isValidLocation(r, c)) 
+				if (gamePanel.isValidLocation(r, c))
 				{
-					if (c == this.Column - 1)
+					if (c == Column - 1)
 					{
-						if (this.Column % 2 == 0)
+						if (Column % 2 == 0)
 						{
-							if (r != this.Row + 1)
+							if (r != Row + 1)
 							{
-								tempLocations.add(this.gamePanel.getLocation(r, c));
-								count++;
+								tempLocations.add(gamePanel.getLocation(r, c));
+								numberOfAdjacentLocations++;
 							}
 						}
-						else if (r != this.Row - 1)
+						else if (r != Row - 1)
 						{
 							tempLocations.add(this.gamePanel.getLocation(r, c));
-							count++;
+							numberOfAdjacentLocations++;
 						}
 					}
-					else if (c == this.Column)
+					else if (c == Column)
 					{
-						if (r != this.Row)
+						if (r != Row)
 						{
-							tempLocations.add(this.gamePanel.getLocation(r, c));
-							count++;
+							tempLocations.add(gamePanel.getLocation(r, c));
+							numberOfAdjacentLocations++;
 						}
 					}
-					else if (c == this.Column + 1) 
+					else if (c == Column + 1)
 					{
-						if (this.Column % 2 == 0)
+						if (Column % 2 == 0)
 						{
-							if (r != this.Row + 1)
+							if (r != Row + 1)
 							{
-								tempLocations.add(this.gamePanel.getLocation(r, c));
-								count++;
+								tempLocations.add(gamePanel.getLocation(r, c));
+								numberOfAdjacentLocations++;
 							}
 						}
-						else if (r != this.Row - 1)
+						else if (r != Row - 1)
 						{
-							tempLocations.add(this.gamePanel.getLocation(r, c));
-							count++;
+							tempLocations.add(gamePanel.getLocation(r, c));
+							numberOfAdjacentLocations++;
 						}
 					}
 				}
 			}
 		}
-		Location[] adjacentLocations = new Location[count];
+		
+		Location[] adjacentLocations = new Location[numberOfAdjacentLocations];
 
-		for (int i = 0; i < tempLocations.size(); i++) 
+		for (int i = 0; i < tempLocations.size(); i++)
 		{
-			adjacentLocations[i] = ((Location)tempLocations.get(i));
+			adjacentLocations[i] = ((Location) tempLocations.get(i));
 		}
 		return adjacentLocations;
+	}
+
+	public void checkBorders()
+	{
+		clearBorders();
+
+		int thisRow = getRow();
+		int thisCol = getColumn();
+
+		GamePanel gamePanel = this.getGamePanel();
+
+		Location north = gamePanel.getLocation(thisRow - 1, thisCol);
+		Location south = gamePanel.getLocation(thisRow + 1, thisCol);
+		Location northwest;
+		Location northeast;
+		Location southeast;
+		Location southwest;
+
+		if (thisCol % 2 == 0)
+		{
+			northeast = gamePanel.getLocation(thisRow - 1, thisCol + 1);
+			southeast = gamePanel.getLocation(thisRow, thisCol + 1);
+			southwest = gamePanel.getLocation(thisRow, thisCol - 1);
+			northwest = gamePanel.getLocation(thisRow - 1, thisCol - 1);
+		}
+		else
+		{
+			northeast = gamePanel.getLocation(thisRow, thisCol + 1);
+			southeast = gamePanel.getLocation(thisRow + 1, thisCol + 1);
+			southwest = gamePanel.getLocation(thisRow + 1, thisCol - 1);
+			northwest = gamePanel.getLocation(thisRow, thisCol - 1);
+		}
+
+		Location[] adjacentLocations = new Location[6];
+
+		adjacentLocations[0] = north;
+		adjacentLocations[1] = northeast;
+		adjacentLocations[2] = southeast;
+		adjacentLocations[3] = south;
+		adjacentLocations[4] = southwest;
+		adjacentLocations[5] = northwest;
+
+		for (Location l : adjacentLocations)
+		{
+			if (gamePanel.isValidLocation(l))
+			{
+				if (!(l.getFaction().equals(this.getFaction())))
+				{
+					if (l == north)
+					{
+						addBorder(this.blueBorderTop);
+					}
+					else if (l == south)
+					{
+						addBorder(this.blueBorderBottom);
+					}
+					else if (l == southeast)
+					{
+						addBorder(this.blueBorderBottomRight);
+					}
+					else if (l == southwest)
+					{
+						addBorder(this.blueBorderBottomLeft);
+					}
+					else if (l == northeast)
+					{
+						addBorder(this.blueBorderTopRight);
+					}
+					else if (l == northwest)
+					{
+						addBorder(this.blueBorderTopLeft);
+					}
+				}
+			}
+		}
+	}
+
+	public void importBorders()
+	{
+		try
+		{
+			this.blueBorderTop = ImageIO.read(new File(
+					"Images/Overlays/blueBorderTop.png"));
+			this.blueBorderTopRight = ImageIO.read(new File(
+					"Images/Overlays/blueBorderTopRight.png"));
+			this.blueBorderBottomRight = ImageIO.read(new File(
+					"Images/Overlays/blueBorderBottomRight.png"));
+			this.blueBorderBottom = ImageIO.read(new File(
+					"Images/Overlays/blueBorderBottom.png"));
+			this.blueBorderBottomLeft = ImageIO.read(new File(
+					"Images/Overlays/blueBorderBottomLeft.png"));
+			this.blueBorderTopLeft = ImageIO.read(new File(
+					"Images/Overlays/blueBorderTopLeft.png"));
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
 	}
 }
