@@ -71,15 +71,15 @@
    private static int gamePanelWidth = 1000;
    private static int gamePanelHeight = 500;
    
-   private static int width = 1000;
-   private static int height = 800;
+   private static int mainWindowWidth = 1000;
+   private static int mainWindowHeight = 800;
    
-   private static int leftMargin = width / 5;
-   private static int rightMargin = width / 12;
+   private static int leftMargin = mainWindowWidth / 5;
+   private static int rightMargin = mainWindowWidth / 12;
    private static int topMargin = 50;
    private static int bottomMargin = 50;
    
-   private static String hexType = "Grass";
+   private static Hex hexType = new Grass();
    
    private static ArrayList<JButton> buttons = new ArrayList<JButton>();
    
@@ -94,122 +94,80 @@
      gamePanel.run();
    }
    
-   static ActionListener toggleSandboxMode = new ActionListener()
+   static ActionListener buttonListener = new ActionListener()
    {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.gamePanel.toggleSandboxMode();
-       Hexes.gamePanel.togglePause();
-       
-       if (Hexes.gamePanel.isSandboxMode())
-       {
-         Hexes.pauseButton.setText("Unpause");
-         
-         for (JButton b : Hexes.buttons) 
-         {
-           b.setForeground(Color.BLACK);
-         }
-       }
-       else
-       {
-         Hexes.pauseButton.setText("Pause");
-         
-         for (JButton b : Hexes.buttons) 
-         {
-           b.setForeground(Color.GRAY);
-         }
-       }
-     }
+	   public void actionPerformed(ActionEvent e)
+	   {
+		   if(e.getSource() == pauseButton)
+		   {
+		       Hexes.gamePanel.togglePause();
+		       
+		       if (Hexes.gamePanel.isPaused())
+		       {
+		         Hexes.pauseButton.setText("Unpause");
+		         
+		         for (JButton b : Hexes.buttons) 
+		         {
+		           b.setForeground(Color.BLACK);
+		         }
+		       }
+		       else
+		       {
+		         Hexes.pauseButton.setText("Pause");
+		         
+		         for (JButton b : Hexes.buttons) 
+		         {
+		           b.setForeground(Color.GRAY);
+		         }
+		       }
+		   }
+		   else if(e.getSource() == resetWorldButton)
+		   {
+			   Hexes.gamePanel.resetWorld();
+		   }
+		   else if(e.getSource() == saveWorldButton)
+		   {
+			   Hexes.saveWorld(Hexes.worldFilePath);
+		   }
+		   else if(e.getSource() == loadWorldButton)
+		   {
+			   System.out.println("Loading world!");
+		   }
+		   else if(e.getSource() == grassButton)
+		   {
+			   Hexes.hexType = new Grass();
+		   }
+		   else if(e.getSource() == lavaButton)
+		   {
+			   Hexes.hexType = new Lava();
+		   }
+		   else if(e.getSource() == bearButton)
+		   {
+			   Hexes.hexType = new Bear();
+		   }
+		   else if(e.getSource() == waterButton)
+		   {
+			   Hexes.hexType = new Water();
+		   }
+		   else if(e.getSource() == treesButton)
+		   {
+			   Hexes.hexType = new Trees();
+		   }
+		   else if(e.getSource() == peopleButton)
+		   {
+			   Hexes.hexType = new People();
+		   }
+		   else if(e.getSource() == rallyPointButton)
+		   {
+			   Hexes.hexType = new RallyPoint();
+		   }
+		   else if(e.getSource() == houseButton)
+		   {
+			   Hexes.hexType = new House();
+		   }
+	   }
    };
-   
-   static ActionListener setHexTypeGrass = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "Grass";
-     }
-   };
-   
-   static ActionListener setHexTypeLava = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "Lava";
-     }
-   };
-   
-   static ActionListener setHexTypeBear = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "Bear";
-     }
-   };
-   
-   static ActionListener setHexTypeWater = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "Water";
-     }
-   };
-   
-   static ActionListener setHexTypeTrees = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "Trees";
-     }
-   };
-   
-   static ActionListener setHexTypePeople = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "People";
-     }
-   };
-   
-   static ActionListener setHexTypeRallyPoint = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "RallyPoint";
-     }
-   };
-   
-   static ActionListener setHexTypeHouse = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.hexType = "House";
-     }
-   };
-   
-   static ActionListener resetWorldAction = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.gamePanel.resetWorld();
-     }
-   };
-   
-   static ActionListener saveWorldAction = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       Hexes.saveWorld(Hexes.worldFilePath);
-     }
-   };
-   
-   static ActionListener loadWorldAction = new ActionListener()
-   {
-     public void actionPerformed(ActionEvent e)
-     {
-       System.out.println("Loading the world");
-     }
-   };
-   
+
    static ChangeListener speedChanged = new ChangeListener()
    {
      public void stateChanged(ChangeEvent e)
@@ -227,7 +185,7 @@
          
          System.out.println(Hexes.simulationSpeed);
          
-         Hexes.gamePanel.setSpeed(Hexes.simulationSpeed);
+         Hexes.gamePanel.setGameSpeed(Hexes.simulationSpeed);
        }
      }
    };
@@ -240,18 +198,7 @@
      rightPanel.setPreferredSize(new Dimension(rightMargin, 100));
      topPanel.setPreferredSize(new Dimension(500, topMargin));
      bottomPanel.setPreferredSize(new Dimension(500, bottomMargin));
-     
-     pauseButton.addActionListener(toggleSandboxMode);
-     
-     grassButton.addActionListener(setHexTypeGrass);
-     waterButton.addActionListener(setHexTypeWater);
-     treesButton.addActionListener(setHexTypeTrees);
-     peopleButton.addActionListener(setHexTypePeople);
-     bearButton.addActionListener(setHexTypeBear);
-     lavaButton.addActionListener(setHexTypeLava);
-     rallyPointButton.addActionListener(setHexTypeRallyPoint);
-     houseButton.addActionListener(setHexTypeHouse);
-     
+
      speedSlider = new JSlider(1, 40, 100, 50);
      
      speedSlider.setMajorTickSpacing(10);
@@ -261,7 +208,7 @@
      speedSlider.addChangeListener(speedChanged);
      
      mainWindow.setLayout(mainLayout);
-     mainWindow.setSize(width, height);
+     mainWindow.setSize(mainWindowWidth, mainWindowHeight);
      mainWindow.setLocationRelativeTo(null);
      mainWindow.setDefaultCloseOperation(3);
      
@@ -271,9 +218,10 @@
      mainWindow.add(leftPanel, "Before");
      mainWindow.add(rightPanel, "After");
      
-     resetWorldButton.addActionListener(resetWorldAction);
-     saveWorldButton.addActionListener(saveWorldAction);
-     loadWorldButton.addActionListener(loadWorldAction);
+     pauseButton.addActionListener(buttonListener);
+     resetWorldButton.addActionListener(buttonListener);
+     saveWorldButton.addActionListener(buttonListener);
+     loadWorldButton.addActionListener(buttonListener);
      
      menuBar.setBackground(Color.LIGHT_GRAY);
      
@@ -285,6 +233,7 @@
      
      for (JButton b : buttons) 
      {
+    	 b.addActionListener(buttonListener);
        leftPanel.add(b);
      }
      
@@ -348,7 +297,7 @@
      buttons.add(houseButton);
    }
    
-   public static String getHexType()
+   public static Hex getHexType()
    {
      return hexType;
    }
@@ -371,8 +320,8 @@
      {
        BufferedWriter out = new BufferedWriter(new FileWriter(filePath));
        
-       int numRows = gamePanel.getNumRows();
-       int numColumns = gamePanel.getNumColumns();
+       int numRows = gamePanel.getNumberOfRows();
+       int numColumns = gamePanel.getNumberOfColumns();
        
        int width = gamePanel.getWidth();
        int height = gamePanel.getHeight();
